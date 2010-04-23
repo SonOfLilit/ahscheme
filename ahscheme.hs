@@ -1,10 +1,10 @@
 -- AHScheme 0
 -------------
 -- Written by Aur Saraf
--- 
+--
 -- Based on the "Write yourself a Scheme in 48 hours in Haskell" tutorial, but not
 -- blindly copied.
--- 
+--
 -- Placed in the Public domain
 
 module Main where
@@ -15,36 +15,29 @@ import Test.HUnit
 
 main :: IO ()
 main = do
-    counts <- runTestTT unitTests
+    _ <- runTestTT unitTests
     return ()
 
 unitTests = test [ parserTests ]
 
 parsesTo :: String -> String -> Test
-parsesTo lisp expected = expected ~=? (parseToStr lisp)
+parsesTo = (~=?) . parseToStr
 
-parsesToIdentity a = a `parsesTo` a
+parsesToIdentity = join parsesTo
 
 parseError :: String -> Test
 parseError lisp = let message = "No parse error parsing: " ++ lisp
                       isError = isPrefixOf "\"Error: " (parseToStr lisp)
                   in test $ assertBool message isError
-    
+
 parseToStr :: String -> String
 parseToStr = show . readExpression
 
-parserTests = test [ "parse a number" ~: [parsesToIdentity "0",
-                                          parsesToIdentity "1",
-                                          parsesToIdentity "26092"],
+parserTests = test [ "parse a number" ~: map parsesToIdentity ["0", "1", "26092"],
                      "parse a string" ~: parsesToIdentity "\"Hello World!\"",
-					 "parse an atom" ~: [parsesToIdentity "anAtom",
-                                         parsesToIdentity "a5",
-                                         parsesToIdentity "!",
-                                         parsesToIdentity "a!",
-                                         parsesToIdentity "~a#&##^$",
-                                         parseError "5a"],
+                     "parse an atom" ~: map parsesToIdentity ["anAtom", "a5", "!", "a!", "~a#&##^$"] ++ [parseError "5a"],
                      "parse a list" ~: [parsesToIdentity "(a b c)",
-                                        "(a  b ( c d 5) )" `parsesTo` "(a b (c d 5))"]]
+                     "(a b ( c d 5) )" `parsesTo` "(a b (c d 5))"]]
 
 data Value = Atom String
            | List [Value]
@@ -75,8 +68,9 @@ symbol = oneOf "!$%&|*+-/:<=?>@^_~#"
 
 parseAtom :: Parser Value
 parseAtom = do
-    first <- letter <|> symbol
-    rest <- many (letter <|> symbol <|> digit)
+    let ls = letter <|> symbol
+    first <- ls
+    rest <- many (ls <|> digit)
     let name = first : rest
     return $ Atom name
 
@@ -89,16 +83,17 @@ parseList = do
     first <- parseValue
     rest <- many (spaces *> parseValue <* spaces0)
     char ')'
-    return $ List $ [first] ++ rest
+    return . List $ [first] ++ rest
 
 parseNumber :: Parser Value
 parseNumber = do
     digits <- many1 digit
-    return $ Number $ read digits
+    return . Number $ read digits
 
 parseString :: Parser Value
 parseString = do
-    char '"'
+    let q = char '"'
+    q
     contents <- many $ noneOf "\""
-    char '"'
+    q
     return $ String contents
